@@ -43,20 +43,74 @@ def is_hidden(state, agent_id, pawn):
 # count the numbers of pawns that i have that aren't hidden
 def dumb_heuristic2(state, agent_id):
     sum_pawns = 0
+    pawnLocationList = []
     if agent_id == 0:
         for key, value in state.player1_pawns.items():
             if not np.array_equal(value[0], not_on_board) and not is_hidden(state, agent_id, key):
                 sum_pawns += 1
+                pawnLocationList.append((value[0][0],value[0][1]))
     if agent_id == 1:
         for key, value in state.player2_pawns.items():
             if not np.array_equal(value[0], not_on_board) and not is_hidden(state, agent_id, key):
                 sum_pawns += 1
-
+                pawnLocationList.append((value[0][0],value[0][1]))
+    print("list",pawnLocationList)
     return sum_pawns
 
 
+def points_calculator(occurences):
+    if (occurences==0):
+        return 0
+    if (occurences==1):
+        return 1
+    if (occurences==2):
+        return 10
+    if (occurences==3):
+        return 100
+
 def smart_heuristic(state, agent_id):
-    return
+    pawnLocationList = []
+    if agent_id == 0:
+        for key, value in state.player1_pawns.items():
+            if not np.array_equal(value[0], not_on_board) and not is_hidden(state, agent_id, key):
+                pawnLocationList.append((value[0][0],value[0][1]))
+    if agent_id == 1:
+        for key, value in state.player2_pawns.items():
+            if not np.array_equal(value[0], not_on_board) and not is_hidden(state, agent_id, key):
+                pawnLocationList.append((value[0][0],value[0][1]))
+    print(pawnLocationList)
+    coordinates = [(0,0),(0,1),(0,2),(1,0),(1,1),(1,2),(2,0),(2,1),(2,2)]
+    totalPoints=0
+    i=0
+    firstDiagonalOccurence=0
+    secondDiagonalOccurence=0
+    rowOccurence = 0
+    columnOccurence =0
+    while (i != 3):
+        for coord in coordinates:
+            if (coord[0]==i): #going over rows
+                if (coord in pawnLocationList):
+                    rowOccurence+=1
+            if (coord[1]==i): #going over columns
+                if (coord in pawnLocationList):
+                    columnOccurence+=1
+        totalPoints+=points_calculator(rowOccurence)
+        totalPoints += points_calculator(columnOccurence)
+        rowOccurence=0
+        columnOccurence=0
+        i+=1
+
+    #going over diagonals
+    for coord in coordinates:
+        if (coord == (0,0) or coord==(1,1) or coord==(2,2)):
+            if (coord in pawnLocationList):
+                firstDiagonalOccurence += 1
+        if (coord == (0,2) or coord==(1,1) or coord==(2,0)):
+            if (coord in pawnLocationList):
+                secondDiagonalOccurence += 1
+    totalPoints += (points_calculator(firstDiagonalOccurence) + points_calculator(secondDiagonalOccurence))
+    print(totalPoints)
+    return totalPoints
 
 
 # IMPLEMENTED FOR YOU - NO NEED TO CHANGE
@@ -86,7 +140,7 @@ def greedy(curr_state, agent_id, time_limit):
     max_heuristic = 0
     max_neighbor = None
     for neighbor in neighbor_list:
-        curr_heuristic = dumb_heuristic2(neighbor[1], agent_id)
+        curr_heuristic = smart_heuristic(neighbor[1], agent_id)
         if curr_heuristic >= max_heuristic:
             max_heuristic = curr_heuristic
             max_neighbor = neighbor
