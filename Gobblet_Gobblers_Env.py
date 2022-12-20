@@ -443,14 +443,14 @@ class GridWorldEnv(gym.Env):
                 0,
                 (200, 100 + (x + 1) * 100),
                 (500, 100 + (x + 1) * 100),
-                width=3,
+                3
             )
             pygame.draw.line(
                 canvas,
                 0,
                 (100 + (x + 1) * 100, 200),
                 (100 + (x + 1) * 100, 500),
-                width=3,
+                3
             )
 
             b_a = np.full((3, 3), "\033[0;36m B \033[1;37m")

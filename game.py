@@ -5,7 +5,7 @@ import submission
 
 # TODO - elaborate
 time_limit = 1
-steps_limit = 100
+steps_limit = 1
 
 agents = {
     "human": submission.human_agent,

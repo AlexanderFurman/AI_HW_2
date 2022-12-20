@@ -4,8 +4,13 @@ import numpy as np
 
 import Gobblet_Gobblers_Env as gge
 
-not_on_board = np.array([-1, -1])
+import time
+import threading
 
+
+
+not_on_board = np.array([-1, -1])
+heuristics_values = []
 
 # agent_id is which player I am, 0 - for the first player , 1 - if second player
 def dumb_heuristic1(state, agent_id):
@@ -140,7 +145,7 @@ def greedy(curr_state, agent_id, time_limit):
     max_heuristic = 0
     max_neighbor = None
     for neighbor in neighbor_list:
-        curr_heuristic = smart_heuristic(neighbor[1], agent_id)
+        curr_heuristic = dumb_heuristic2(neighbor[1], agent_id)
         if curr_heuristic >= max_heuristic:
             max_heuristic = curr_heuristic
             max_neighbor = neighbor
@@ -149,10 +154,112 @@ def greedy(curr_state, agent_id, time_limit):
 
 # TODO - add your code here
 def greedy_improved(curr_state, agent_id, time_limit):
-    raise NotImplementedError()
+    global heuristics_values
+    neighbor_list = curr_state.get_neighbors()
+    max_heuristic = 0
+    max_neighbor = None
+    for neighbor in neighbor_list:
+        curr_heuristic = smart_heuristic(neighbor[1], agent_id)
+        if curr_heuristic >= max_heuristic:
+            max_heuristic = curr_heuristic
+            max_neighbor = neighbor
+    heuristics_values.append(max_heuristic)
+    return max_neighbor[0]
+
+def time_elapsed(start_time):
+    return time.time() - start_time
+
+def states_equal(state_1, state_2):
+    # print(f"items of player2 = {state_2.player1_pawns.items()}")
+    state1_p1 = np.array([v[0] for k,v in state_1.player1_pawns.items()])
+    state2_p1 = np.array([v[0] for k,v in state_2.player1_pawns.items()])
+
+    state1_p2 = np.array([v[0] for k,v in state_1.player2_pawns.items()])
+    state2_p2 = np.array([v[0] for k,v in state_2.player2_pawns.items()])
+
+    return (state1_p1 == state2_p1).all() and (state1_p2 == state2_p2).all()
 
 
 def rb_heuristic_min_max(curr_state, agent_id, time_limit):
+    # start_time = time.time()
+    agent_number = agent_id
+    # print(f"time limit = {time_limit}")
+
+    def rb_minimax_recursion(current_state, turn_id, current_depth):
+        # print(f"time elapsed = {time_elapsed(start_time)}")
+        # if time_elapsed(start_time) > time_limit:
+        #     return False
+
+        if current_depth == 0:
+            return (current_state, smart_heuristic(current_state, agent_id))
+
+        if gge.is_final_state(current_state):
+            return (current_state, smart_heuristic(current_state, agent_id))
+
+
+        neighbor_list = current_state.get_neighbors()
+
+        if turn_id == agent_number:
+            max_heuristic = -np.inf
+            max_state = None
+
+            for neighbor in neighbor_list:
+                v = rb_minimax_recursion(neighbor[1], 1 - turn_id, current_depth-1)
+                if v == False:
+                    return False
+                current_heuristic = v[1]
+                if current_heuristic > max_heuristic:
+                    max_heuristic = current_heuristic
+                    max_state = neighbor[1]
+            return (max_state, max_heuristic)
+
+        else:
+            min_heuristic = +np.inf
+            min_state = None
+
+            for neighbor in neighbor_list:
+                v = rb_minimax_recursion(neighbor[1], 1 - turn_id, current_depth-1)
+                if v == False:
+                    return False
+                current_heuristic = v[1]
+                if current_heuristic < min_heuristic:
+                    min_heuristic = current_heuristic
+                    min_state = neighbor[1]
+            return (min_state,min_heuristic)
+
+    depth = 0
+    deepest_fully_scanned_solution = None
+    current_solution = rb_minimax_recursion(curr_state, agent_id, depth)
+
+    def min_max_thread():
+        deepest_fully_scanned_solution = current_solution[0]
+        # print(f" deppest scan = {deepest_fully_scanned_solution}")
+        depth += 1
+        current_solution = rb_minimax_recursion(curr_state, agent_id, depth)
+
+
+    # while(current_solution is not False):
+    #     deepest_fully_scanned_solution = current_solution[0]
+    #     print(f" deppest scan = {deepest_fully_scanned_solution}")
+    #     depth += 1
+    #     current_solution = rb_minimax_recursion(curr_state, agent_id, depth)
+
+    x = threading.Thread(target=min_max_thread)
+    x.start()
+    time.sleep(time_limit)
+    x.join()
+    chosen_step = [neighbour for neighbour in curr_state.get_neighbors() if states_equal(neighbour[1],deepest_fully_scanned_solution)][0][0]
+    return chosen_step
+        
+        
+
+
+
+
+
+
+
+
     raise NotImplementedError()
 
 
