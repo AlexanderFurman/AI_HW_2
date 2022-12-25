@@ -5,11 +5,6 @@ import numpy as np
 import Gobblet_Gobblers_Env as gge
 
 import time
-import threading
-# import multiprocessing
-import trace
-
-
 
 
 not_on_board = np.array([-1, -1])
@@ -186,16 +181,13 @@ def states_equal(state_1, state_2):
 def rb_heuristic_min_max(curr_state, agent_id, time_limit):
     start_time = time.time()
     agent_number = agent_id
-    # print(f"time limit = {time_limit}")
-    stop_event = threading.Event()
-    time_for_recursion = 0
-    time_elapsed = 0
+    cushion = 2 # [s], stopping recursion 2 seconds before time limit to allow for exiting the nested recursion
+    # time_for_recursion = 0
+    # time_elapsed = 0
 
     def rb_minimax_recursion(current_state, turn_id, current_depth):
-        # print(f"time elapsed = {time_elapsed(start_time)}")
-        # if time_elapsed(start_time) > time_limit:
-        #     return False
-        if stop_event.is_set():
+        print(f"time elapsed = {time_elapsed(start_time)}")
+        if time_elapsed(start_time) > time_limit - cushion:
             return False
 
         if current_depth == 0:
@@ -235,60 +227,22 @@ def rb_heuristic_min_max(curr_state, agent_id, time_limit):
                     min_state = neighbor[1]
             return (min_state,min_heuristic)
 
+
+    depth = 0
     deepest_fully_scanned_solution = None
-    # current_solution = rb_minimax_recursion(curr_state, agent_id, depth)
+    recursion_start_time = time.time()
+    current_solution = rb_minimax_recursion(curr_state, agent_id, depth)
 
-    def min_max_thread():
-        global deepest_fully_scanned_solution
-        
-        depth = 0
-        deepest_fully_scanned_solution = None
-        recursion_start_time = time.time()
+    while(current_solution is not False):
+    # while(depth < 2):
+        deepest_fully_scanned_solution = current_solution[0]
+        # print(f" deppest scan = {deepest_fully_scanned_solution}")
+        depth += 1
         current_solution = rb_minimax_recursion(curr_state, agent_id, depth)
-        time_for_recursion = time.time() - recursion_start_time
 
-        # while True:
-        #     if stop_event.is_set():
-        #         print("TIMEOUT")
-        #         break
-        #     print("reached thread")
-
-        while(current_solution is not False):
-            
-            deepest_fully_scanned_solution = current_solution[0]
-            # print(f" deppest scan = {deepest_fully_scanned_solution}")
-            depth += 1
-            current_solution = rb_minimax_recursion(curr_state, agent_id, depth)
-
-
-    # while(current_solution is not False):
-    #     deepest_fully_scanned_solution = current_solution[0]
-    #     print(f" deppest scan = {deepest_fully_scanned_solution}")
-    #     depth += 1
-    #     current_solution = rb_minimax_recursion(curr_state, agent_id, depth)
-
-    # x = threading.Timer(target=min_max_thread)
-    x = threading.Thread(target=min_max_thread)
-    x.start()
-    time.sleep(time_limit)
-    stop_event.set()
-
-    x.join()
-    # x.terminate()
     print(f"time elapsed = {time.time()-start_time}")
     chosen_step = [neighbour for neighbour in curr_state.get_neighbors() if states_equal(neighbour[1],deepest_fully_scanned_solution)][0][0]
     return chosen_step
-        
-        
-
-
-
-
-
-
-
-
-    raise NotImplementedError()
 
 
 def alpha_beta(curr_state, agent_id, time_limit):
