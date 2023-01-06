@@ -71,8 +71,8 @@ def points_calculator(occurences):
         return 10
     if (occurences==3):
         return 100
-    
-    
+
+
 def points(pawnLocationList):
     coordinates = [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2), (2, 0), (2, 1), (2, 2)]
     totalPoints = 0
@@ -128,7 +128,9 @@ def smart_heuristic(state, agent_id):
     #print(totalPoints)
     myPoints = points(pawnLocationList)
     rivalPoints = points(rivalPawnLocationList)
-    return myPoints-rivalPoints
+    if (rivalPoints >= 100):
+        return 0
+    return myPoints
 
 
 # IMPLEMENTED FOR YOU - NO NEED TO CHANGE
@@ -173,6 +175,7 @@ def greedy_improved(curr_state, agent_id, time_limit):
     max_neighbor = None
     for neighbor in neighbor_list:
         curr_heuristic = smart_heuristic(neighbor[1], agent_id)
+        print(curr_heuristic)
         if curr_heuristic >= max_heuristic:
             max_heuristic = curr_heuristic
             max_neighbor = neighbor
