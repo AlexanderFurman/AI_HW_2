@@ -107,8 +107,8 @@ def points(pawnLocationList):
     return totalPoints
 
 
-def opponentFinnaWin(pawnLocationList,rivalPawnLocationList):
-    print(pawnLocationList)
+def opponentFinnaWin(pawnLocationList,rivalPawnLocationList,state,agent_id):
+    #print(pawnLocationList)
     coordinates = [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2), (2, 0), (2, 1), (2, 2)]
     myRowOccurence = 0
     myColumnOccurence = 0
@@ -153,8 +153,12 @@ def opponentFinnaWin(pawnLocationList,rivalPawnLocationList):
             if (coord in rivalPawnLocationList):
                 rivalSecondDiagonalOccurence += 1
         if (rivalFirstDiagonalOccurence == 2 and myFirstDiagonalOccurence==0):
+            #print("agent id about to win:",agent_id)
+            #gge.render_console(state)
             return True
         if (rivalSecondDiagonalOccurence == 2 and mySecondDiagonalOccurence==0):
+            #print("agent id about to win:",agent_id)
+            #gge.render_console(state)
             return True
     return False
 
@@ -181,7 +185,10 @@ def smart_heuristic(state, agent_id):
     #print(totalPoints)
     myPoints = points(pawnLocationList)
     rivalPoints = points(rivalPawnLocationList)
-    if (opponentFinnaWin(pawnLocationList,rivalPawnLocationList) and myPoints<100):#aka opponent about to win and we didn't
+    #gge.render_console(state)
+    #print("agent id:",agent_id)
+    #print("opponent finna win: ",opponentFinnaWin(pawnLocationList,rivalPawnLocationList,state))
+    if (opponentFinnaWin(pawnLocationList,rivalPawnLocationList,state,1-agent_id) and myPoints<100):#aka opponent about to win and we didn't
         return 0
     if (rivalPoints>=100):#opponent won
         return 0
@@ -230,7 +237,7 @@ def greedy_improved(curr_state, agent_id, time_limit):
     max_neighbor = None
     for neighbor in neighbor_list:
         curr_heuristic = smart_heuristic(neighbor[1], agent_id)
-        print(curr_heuristic)
+        #print(curr_heuristic)
         if curr_heuristic >= max_heuristic:
             max_heuristic = curr_heuristic
             max_neighbor = neighbor
@@ -316,6 +323,7 @@ def rb_heuristic_min_max(curr_state, agent_id, time_limit):
     #print(f"time elapsed = {time.time()-start_time}")
     chosen_step = [neighbour for neighbour in curr_state.get_neighbors() if states_equal(neighbour[1],deepest_fully_scanned_solution)][0][0]
     #print("minimax depth: ", depth)
+    #gge.render_console(chosen_step)
     return chosen_step
 
 
@@ -455,21 +463,30 @@ def probability_of_happening(curr_state, next_state, num_neighbors, agent_id):
             break
 
     #now we are going to check if the move included the moving/placing of a SMALL pawn
-    #we're going to start by assuming we never have our pawn encapsulating another pawn of ours directly
 
-###
     if not captured:
-        #here, we are checking if we placed a new SMALL pawn on the board, or if a small pawn was moved onto a new square
-        #if we have, say, our medium pawn encapsulating our small pawn, and then the medium pawn is moved somewhere else,
-        #the probability would indeed be doubled, even though it shouldn't. However, a scenario as such is extremely hard to
-        #believe
+        # in order to check the case of a small pawn appearing on the board at a new location, there are two options:
+        # either we moved it directly (made a move with S), or it was unravelled by moving a bigger encapsulating pawn
+        # (in which case we did not make a move with S)
+        small_changed = False
         for pawn in myNewPawnLocationList:
             if (pawn[2] != 'S'):
                 continue
             if pawn not in myOldPawnLocationList:
-                gge.render_console(curr_state)
-                gge.render_console(next_state)
                 p *= 2
+                small_changed = True
+                break
+        #here we are checking if the small pawn appeared at a new spot because we moved a pawn that was encapsulating it
+        #we check that by checking if any other of our pawns were moved/placed on the board. If so, then we will divide
+        #the probability by 2
+        if small_changed:
+            for pawn in myNewPawnLocationList:
+                if (pawn[2] == 'S'):
+                    continue
+                if pawn not in myOldPawnLocationList:
+                    p /= 2
+                    break
+
 
     return p
 
