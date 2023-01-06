@@ -264,10 +264,12 @@ def rb_heuristic_min_max(curr_state, agent_id, time_limit):
             return False
 
         if current_depth == 0:
-            return (current_state, smart_heuristic(current_state, agent_id))
+            # return (current_state, smart_heuristic(current_state, agent_id))
+            return (current_state, smart_heuristic(current_state, turn_id))
 
         if gge.is_final_state(current_state):
-            return (current_state, smart_heuristic(current_state, agent_id))
+            # return (current_state, smart_heuristic(current_state, agent_id))
+            return (current_state, smart_heuristic(current_state, turn_id))
 
 
         neighbor_list = current_state.get_neighbors()

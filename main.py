@@ -8,8 +8,8 @@ if __name__ == '__main__':
     print("YAY LET'S START RUNNING STUFF")
 
     # PART1
-    game.play_game("minimax","greedy_improved")
-    print(heuristics_values)
+    game.play_game("greedy_improved", "minimax")
+    # print(heuristics_values)
     # x_vals = np.linspace(1,len(heuristics_values), len(heuristics_values))
     # print(x_vals)
     # plt.plot(x_vals, heuristics_values)
