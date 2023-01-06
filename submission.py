@@ -107,6 +107,59 @@ def points(pawnLocationList):
     return totalPoints
 
 
+def opponentFinnaWin(pawnLocationList,rivalPawnLocationList):
+    print(pawnLocationList)
+    coordinates = [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2), (2, 0), (2, 1), (2, 2)]
+    myRowOccurence = 0
+    myColumnOccurence = 0
+    rivalRowOccurence = 0
+    rivalColumnOccurence = 0
+    i=0
+    while (i != 3):
+        for coord in coordinates:
+            if (coord[0] == i):  # going over rows
+                if (coord in pawnLocationList):
+                    myRowOccurence += 1
+                if (coord in rivalPawnLocationList):
+                    rivalRowOccurence += 1
+            if (coord[1] == i):  # going over columns
+                if (coord in pawnLocationList):
+                    myColumnOccurence += 1
+                if (coord in rivalPawnLocationList):
+                    rivalColumnOccurence += 1
+        if (rivalRowOccurence == 2 and myRowOccurence == 0):
+            return True
+        if (rivalColumnOccurence == 2 and myColumnOccurence == 0):
+            return True
+        rivalRowOccurence = 0
+        myRowOccurence = 0
+        rivalColumnOccurence = 0
+        myColumnOccurence = 0
+        i += 1
+    myFirstDiagonalOccurence=0
+    mySecondDiagonalOccurence = 0
+    rivalFirstDiagonalOccurence = 0
+    rivalSecondDiagonalOccurence = 0
+
+    for coord in coordinates:
+        if (coord == (0, 0) or coord == (1, 1) or coord == (2, 2)):
+            if (coord in pawnLocationList):
+                myFirstDiagonalOccurence += 1
+            if (coord in rivalPawnLocationList):
+                rivalFirstDiagonalOccurence += 1
+        if (coord == (0, 2) or coord == (1, 1) or coord == (2, 0)):
+            if (coord in pawnLocationList):
+                mySecondDiagonalOccurence += 1
+            if (coord in rivalPawnLocationList):
+                rivalSecondDiagonalOccurence += 1
+        if (rivalFirstDiagonalOccurence == 2 and myFirstDiagonalOccurence==0):
+            return True
+        if (rivalSecondDiagonalOccurence == 2 and mySecondDiagonalOccurence==0):
+            return True
+    return False
+
+
+
 def smart_heuristic(state, agent_id):
     pawnLocationList = []
     rivalPawnLocationList = []
@@ -128,7 +181,9 @@ def smart_heuristic(state, agent_id):
     #print(totalPoints)
     myPoints = points(pawnLocationList)
     rivalPoints = points(rivalPawnLocationList)
-    if (rivalPoints >= 100):
+    if (opponentFinnaWin(pawnLocationList,rivalPawnLocationList) and myPoints<100):#aka opponent about to win and we didn't
+        return 0
+    if (rivalPoints>=100):#opponent won
         return 0
     return myPoints
 
