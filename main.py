@@ -8,7 +8,7 @@ if __name__ == '__main__':
     print("YAY LET'S START RUNNING STUFF")
 
     # PART1
-    game.play_game("greedy_improved", "minimax")
+    game.play_game("greedy_improved", "expectimax")
     # print(heuristics_values)
     # x_vals = np.linspace(1,len(heuristics_values), len(heuristics_values))
     # print(x_vals)
@@ -24,4 +24,4 @@ if __name__ == '__main__':
     # PART2
     # game.play_tournament("greedy", "random", 50)
     # game.play_tournament("greedy_improved", "random", 50)
-    # game.play_tournament("greedy", "greedy_improved", 50)
+    # game.play_tournament("greedy_improved", "greedy_improved", 50)

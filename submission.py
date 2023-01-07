@@ -31,10 +31,21 @@ def dumb_heuristic1(state, agent_id):
         return -1
 
 
+# # checks if a pawn is under another pawn
+# def is_hidden(state, agent_id, pawn):
+#     pawn_location = gge.find_curr_location(state, pawn, agent_id)
+#     #print("location:",pawn_location)
+#     for key, value in state.player1_pawns.items():
+#         if np.array_equal(value[0], pawn_location) and gge.size_cmp(value[1], state.player1_pawns[pawn][1]) == 1:
+#             return True
+#     for key, value in state.player2_pawns.items():
+#         if np.array_equal(value[0], pawn_location) and gge.size_cmp(value[1], state.player1_pawns[pawn][1]) == 1:
+#             return True
+#     return False
+
 # checks if a pawn is under another pawn
 def is_hidden(state, agent_id, pawn):
     pawn_location = gge.find_curr_location(state, pawn, agent_id)
-    #print("location:",pawn_location)
     for key, value in state.player1_pawns.items():
         if np.array_equal(value[0], pawn_location) and gge.size_cmp(value[1], state.player1_pawns[pawn][1]) == 1:
             return True
@@ -44,21 +55,34 @@ def is_hidden(state, agent_id, pawn):
     return False
 
 
+# # count the numbers of pawns that i have that aren't hidden
+# def dumb_heuristic2(state, agent_id):
+#     sum_pawns = 0
+#     pawnLocationList = []
+#     if agent_id == 0:
+#         for key, value in state.player1_pawns.items():
+#             if not np.array_equal(value[0], not_on_board) and not is_hidden(state, agent_id, key):
+#                 sum_pawns += 1
+#                 pawnLocationList.append((value[0][0],value[0][1]))
+#     if agent_id == 1:
+#         for key, value in state.player2_pawns.items():
+#             if not np.array_equal(value[0], not_on_board) and not is_hidden(state, agent_id, key):
+#                 sum_pawns += 1
+#                 pawnLocationList.append((value[0][0],value[0][1]))
+#     #print("list",pawnLocationList)
+#     return sum_pawns
 # count the numbers of pawns that i have that aren't hidden
 def dumb_heuristic2(state, agent_id):
     sum_pawns = 0
-    pawnLocationList = []
     if agent_id == 0:
         for key, value in state.player1_pawns.items():
             if not np.array_equal(value[0], not_on_board) and not is_hidden(state, agent_id, key):
                 sum_pawns += 1
-                pawnLocationList.append((value[0][0],value[0][1]))
     if agent_id == 1:
         for key, value in state.player2_pawns.items():
             if not np.array_equal(value[0], not_on_board) and not is_hidden(state, agent_id, key):
                 sum_pawns += 1
-                pawnLocationList.append((value[0][0],value[0][1]))
-    #print("list",pawnLocationList)
+
     return sum_pawns
 
 
@@ -71,7 +95,6 @@ def points_calculator(occurences):
         return 10
     if (occurences==3):
         return 100
-
 
 def points(pawnLocationList):
     coordinates = [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2), (2, 0), (2, 1), (2, 2)]
@@ -162,6 +185,28 @@ def opponentFinnaWin(pawnLocationList,rivalPawnLocationList,state,agent_id):
             return True
     return False
 
+def calc_pawn_value(state, agent_id):
+    pawns = {}
+    count = 0
+
+    if agent_id == 0:
+        pawns = state.player1_pawns
+    else:
+        pawns = state.player2_pawns
+    
+    for _,v in pawns.items():
+        letter = v[1]
+        on_board = (not np.array_equal(v[0], np.array([-1,-1])))
+
+        if on_board:
+            if letter=="B":
+                count += 0.5
+            elif letter=="M":
+                count+=0.2
+            else:
+                count+=0.1
+    return count
+    
 
 
 def smart_heuristic(state, agent_id):
@@ -188,11 +233,14 @@ def smart_heuristic(state, agent_id):
     #gge.render_console(state)
     #print("agent id:",agent_id)
     #print("opponent finna win: ",opponentFinnaWin(pawnLocationList,rivalPawnLocationList,state))
-    if (opponentFinnaWin(pawnLocationList,rivalPawnLocationList,state,1-agent_id) and myPoints<100):#aka opponent about to win and we didn't
-        return 0
     if (rivalPoints>=100):#opponent won
         return 0
-    return myPoints
+    if (myPoints >= 100):
+        return 1000
+    if (opponentFinnaWin(pawnLocationList,rivalPawnLocationList,state,1-agent_id) and myPoints<100):#aka opponent about to win and we didn't
+        return min(myPoints, 1)
+    # return myPoints/(myPoints + rivalPoints)*100 + calc_pawn_value(state, agent_id)
+    return myPoints + calc_pawn_value(state, agent_id)
 
 
 # IMPLEMENTED FOR YOU - NO NEED TO CHANGE
@@ -236,6 +284,7 @@ def greedy_improved(curr_state, agent_id, time_limit):
     max_heuristic = 0
     max_neighbor = None
     for neighbor in neighbor_list:
+        # print("new neighbour")
         curr_heuristic = smart_heuristic(neighbor[1], agent_id)
         #print(curr_heuristic)
         if curr_heuristic >= max_heuristic:
@@ -258,149 +307,444 @@ def states_equal(state_1, state_2):
     return (state1_p1 == state2_p1).all() and (state1_p2 == state2_p2).all()
 
 
+
+class MinMaxNode:
+    def __init__(self):
+        self.parent = None
+        self.sons = []
+        self.value = None
+        self.depth = None
+        self.state = None
+        self.action = None
+
+
+def update_values(node):
+    if len(node.sons) != 0:
+        if node.depth%2 == 0:
+            value = float('-inf')
+            for son in node.sons:
+                update_values(son)
+                if son.value > value:
+                    value = son.value
+                    node.value = value
+        else:
+            value = float('inf')
+            for son in node.sons:
+                update_values(son)
+                if son.value < value:
+                    value = son.value
+                    node.value = value
+
+# def rb_heuristic_min_max(curr_state, agent_id, time_limit):
+#     start_time = time.time()
+#     root = MinMaxNode()
+#     root.depth = 0
+#     root.state = curr_state
+#     root.value = float('-inf')
+#     nodes = [root]
+#     while (time.time() - start_time < (time_limit * 0.95)) and (len(nodes) > 0):
+#         curr_node = nodes.pop(0)
+#         curr_node.value = smart_heuristic(curr_node.state, agent_id)
+#         if not gge.is_final_state(curr_node.state):
+#             neighbor_list = curr_node.state.get_neighbors()
+#             for neighbor in neighbor_list:
+#                 new_node = MinMaxNode()
+#                 new_node.depth = curr_node.depth + 1
+#                 new_node.parent = curr_node
+#                 new_node.state = neighbor[1]
+#                 new_node.action = neighbor[0]
+#                 if new_node.depth%2 == 0:
+#                     new_node.value = float('-inf')
+#                 else:
+#                     new_node.value = float('inf')
+#                 curr_node.sons.append(new_node)
+#                 nodes.append(new_node)
+#     update_values(root)
+#     max_value = float('-inf')
+#     max_action = None
+#     for son in root.sons:
+#         if son.value > max_value:
+#             max_value = son.value
+#             max_action = son.action
+#     return max_action
+
+
 def rb_heuristic_min_max(curr_state, agent_id, time_limit):
     start_time = time.time()
     agent_number = agent_id
     cushion = 2 # [s], stopping recursion 2 seconds before time limit to allow for exiting the nested recursion
-    # time_for_recursion = 0
-    # time_elapsed = 0
 
     def rb_minimax_recursion(current_state, turn_id, current_depth):
-        #print(f"time elapsed = {time_elapsed(start_time)}")
         if time_elapsed(start_time) > time_limit - cushion:
-            return False
+            return -np.inf
 
         if current_depth == 0:
-            # return (current_state, smart_heuristic(current_state, agent_id))
-            return (current_state, smart_heuristic(current_state, turn_id))
+            return smart_heuristic(current_state, agent_id)
 
         if gge.is_final_state(current_state):
-            # return (current_state, smart_heuristic(current_state, agent_id))
-            return (current_state, smart_heuristic(current_state, turn_id))
+            return smart_heuristic(current_state, agent_id)
 
 
         neighbor_list = current_state.get_neighbors()
 
         if turn_id == agent_number:
-            max_heuristic = -np.inf
-            max_state = None
+            max_value = -np.inf
 
             for neighbor in neighbor_list:
                 v = rb_minimax_recursion(neighbor[1], 1 - turn_id, current_depth-1)
-                if v == False:
-                    return False
-                current_heuristic = v[1]
-                if current_heuristic > max_heuristic:
-                    max_heuristic = current_heuristic
-                    max_state = neighbor[1]
-            return (max_state, max_heuristic)
+                max_value = max(v, max_value)
+            return max_value
 
         else:
-            min_heuristic = +np.inf
-            min_state = None
+            min_value = +np.inf
 
             for neighbor in neighbor_list:
+                
                 v = rb_minimax_recursion(neighbor[1], 1 - turn_id, current_depth-1)
-                if v == False:
-                    return False
-                current_heuristic = v[1]
-                if current_heuristic < min_heuristic:
-                    min_heuristic = current_heuristic
-                    min_state = neighbor[1]
-            return (min_state,min_heuristic)
+                min_value = min(v, min_value)
+            return min_value
 
 
     depth = 0
-    deepest_fully_scanned_solution = None
-    recursion_start_time = time.time()
-    current_solution = rb_minimax_recursion(curr_state, agent_id, depth)
+    neighbour_list = curr_state.get_neighbors()
+    max_heuristic = -np.inf
+    max_neighbour = None
 
-    while(current_solution is not False):
-    # while(depth < 2):
-        deepest_fully_scanned_solution = current_solution[0]
-        # print(f" deppest scan = {deepest_fully_scanned_solution}")
-        depth += 1
-        current_solution = rb_minimax_recursion(curr_state, agent_id, depth)
-
-    #print(f"time elapsed = {time.time()-start_time}")
-    chosen_step = [neighbour for neighbour in curr_state.get_neighbors() if states_equal(neighbour[1],deepest_fully_scanned_solution)][0][0]
-    #print("minimax depth: ", depth)
-    #gge.render_console(chosen_step)
-    return chosen_step
+    while(time.time() < start_time + time_limit - 2):
+        for neighbour in neighbour_list:
+            current_heuristic = rb_minimax_recursion(neighbour[1], agent_id, depth)
+            if current_heuristic > max_heuristic:
+                max_heuristic = current_heuristic
+                max_neighbour = neighbour
+        print(f"current best move = {max_neighbour[0]}")
+        print(f"current heuristic found = {max_heuristic}")
+        depth +=1
+    return max_neighbour[0]
 
 
 def alpha_beta(curr_state, agent_id, time_limit):
     start_time = time.time()
     agent_number = agent_id
-    cushion = 2 # [s], stopping recursion 2 seconds before time limit to allow for exiting the nested recursion
-    # time_for_recursion = 0
-    # time_elapsed = 0
+    cushion = 1 # [s], stopping recursion 1 second before time limit to allow for exiting the nested recursion
 
-    def rb_minimax_recursion(current_state, turn_id, current_depth,alpha,beta):
-        #print(f"time elapsed = {time_elapsed(start_time)}")
+    def rb_minimax_recursion(current_state, turn_id, current_depth, alpha, beta):
         if time_elapsed(start_time) > time_limit - cushion:
-            return False
+            return -np.inf
 
         if current_depth == 0:
-            return (current_state, smart_heuristic(current_state, agent_id))
+            return smart_heuristic(current_state, agent_id)
 
         if gge.is_final_state(current_state):
-            return (current_state, smart_heuristic(current_state, agent_id))
+            return smart_heuristic(current_state, agent_id)
 
 
         neighbor_list = current_state.get_neighbors()
 
         if turn_id == agent_number:
-            max_heuristic = -np.inf
-            max_state = None
+            max_value = -np.inf
 
             for neighbor in neighbor_list:
-                v = rb_minimax_recursion(neighbor[1], 1 - turn_id, current_depth-1,alpha,beta)
-                if v == False:
-                    return False
-                current_heuristic = v[1]
-                if current_heuristic > max_heuristic:
-                    max_heuristic = current_heuristic
-                    max_state = neighbor[1]
-                alpha = max(alpha,max_heuristic)
-                if (max_heuristic>=beta):
-                    return (max_state, np.inf)
-            return (max_state, max_heuristic)
+                v = rb_minimax_recursion(neighbor[1], 1 - turn_id, current_depth-1, alpha, beta)
+                max_value = max(v, max_value)
+                alpha = max(alpha,max_value)
+                if (max_value>=beta):
+                    return np.inf
+            return max_value
 
         else:
-            min_heuristic = +np.inf
-            min_state = None
+            min_value = +np.inf
 
             for neighbor in neighbor_list:
-                v = rb_minimax_recursion(neighbor[1], 1 - turn_id, current_depth-1,alpha,beta)
-                if v == False:
-                    return False
-                current_heuristic = v[1]
-                if current_heuristic < min_heuristic:
-                    min_heuristic = current_heuristic
-                    min_state = neighbor[1]
-                beta = min(beta,min_heuristic)
-                if (min_heuristic<=alpha):
-                    return(min_state,-np.inf)
-            return (min_state,min_heuristic)
+                
+                v = rb_minimax_recursion(neighbor[1], 1 - turn_id, current_depth-1, alpha, beta)
+                min_value = min(v, min_value)
+                beta = min(beta,min_value)
+                if alpha >= min_value:
+                    return -np.inf
+            return min_value
 
 
     depth = 0
-    deepest_fully_scanned_solution = None
-    recursion_start_time = time.time()
-    current_solution = rb_minimax_recursion(curr_state, agent_id, depth,-np.inf,np.inf)
+    neighbour_list = curr_state.get_neighbors()
+    max_heuristic = -np.inf
+    max_neighbour = None
 
-    while(current_solution is not False):
-    # while(depth < 2):
-        deepest_fully_scanned_solution = current_solution[0]
-        # print(f" deppest scan = {deepest_fully_scanned_solution}")
-        depth += 1
-        current_solution = rb_minimax_recursion(curr_state, agent_id, depth,-np.inf,np.inf)
+    while(time.time() < start_time + time_limit - 1):
+        for neighbour in neighbour_list:
+            current_heuristic = rb_minimax_recursion(neighbour[1], agent_id, depth, -np.inf, +np.inf)
+            if current_heuristic > max_heuristic:
+                max_heuristic = current_heuristic
+                max_neighbour = neighbour
+        print(f"current best move = {max_neighbour[0]}")
+        print(f"current heuristic found = {max_heuristic}")
+        depth +=1
+    return max_neighbour[0]
 
-    #print(f"time elapsed = {time.time()-start_time}")
-    chosen_step = [neighbour for neighbour in curr_state.get_neighbors() if states_equal(neighbour[1],deepest_fully_scanned_solution)][0][0]
-    #print("alpha beta depth: ",depth)
-    return chosen_step
+    # start_time = time.time()
+    # agent_number = agent_id
+    # cushion = 2 # [s], stopping recursion 2 seconds before time limit to allow for exiting the nested recursion
+    # # time_for_recursion = 0
+    # # time_elapsed = 0
+
+    # def rb_minimax_recursion(current_state, turn_id, current_depth,alpha,beta):
+    #     #print(f"time elapsed = {time_elapsed(start_time)}")
+    #     if time_elapsed(start_time) > time_limit - cushion:
+    #         return False
+
+    #     if current_depth == 0:
+    #         return (current_state, smart_heuristic(current_state, agent_id))
+
+    #     if gge.is_final_state(current_state):
+    #         return (current_state, smart_heuristic(current_state, agent_id))
+
+
+    #     neighbor_list = current_state.get_neighbors()
+
+    #     if turn_id == agent_number:
+    #         max_heuristic = -np.inf
+    #         max_state = None
+
+    #         for neighbor in neighbor_list:
+    #             v = rb_minimax_recursion(neighbor[1], 1 - turn_id, current_depth-1,alpha,beta)
+    #             if v == False:
+    #                 return False
+    #             current_heuristic = v[1]
+    #             if current_heuristic > max_heuristic:
+    #                 max_heuristic = current_heuristic
+    #                 max_state = neighbor[1]
+    #             alpha = max(alpha,max_heuristic)
+    #             if (max_heuristic>=beta):
+    #                 return (max_state, np.inf)
+    #         return (max_state, max_heuristic)
+
+    #     else:
+    #         min_heuristic = +np.inf
+    #         min_state = None
+
+    #         for neighbor in neighbor_list:
+    #             v = rb_minimax_recursion(neighbor[1], 1 - turn_id, current_depth-1,alpha,beta)
+    #             if v == False:
+    #                 return False
+    #             current_heuristic = v[1]
+    #             if current_heuristic < min_heuristic:
+    #                 min_heuristic = current_heuristic
+    #                 min_state = neighbor[1]
+    #             beta = min(beta,min_heuristic)
+    #             if (min_heuristic<=alpha):
+    #                 return(min_state,-np.inf)
+    #         return (min_state,min_heuristic)
+
+
+    # depth = 0
+    # deepest_fully_scanned_solution = None
+    # recursion_start_time = time.time()
+    # current_solution = rb_minimax_recursion(curr_state, agent_id, depth,-np.inf,np.inf)
+
+    # while(current_solution is not False):
+    # # while(depth < 2):
+    #     deepest_fully_scanned_solution = current_solution[0]
+    #     # print(f" deppest scan = {deepest_fully_scanned_solution}")
+    #     depth += 1
+    #     current_solution = rb_minimax_recursion(curr_state, agent_id, depth,-np.inf,np.inf)
+
+    # #print(f"time elapsed = {time.time()-start_time}")
+    # chosen_step = [neighbour for neighbour in curr_state.get_neighbors() if states_equal(neighbour[1],deepest_fully_scanned_solution)][0][0]
+    # #print("alpha beta depth: ",depth)
+    # return chosen_step
+
+
+
+# def probability_of_happening(curr_state, next_state, num_neighbors, agent_id):
+#     #print("my agent id: ",agent_id)
+#     #this function is called only for the rival player. Therefore we are playing from his perspective, seeing
+#     #if we can take pawns of the rival player, aka our actual player
+#     p = 1/num_neighbors
+#     myOldPawnLocationList = []
+#     rivalOldPawnLocationList = []
+#     myNewPawnLocationList = []
+#     rivalNewPawnLocationList = []
+
+#     #Here we are creating lists of our pawn locations on the board and our opponent's pawn locations on the board,
+#     # both before and after the move we make. This is in order to see what changed on the board
+#     if agent_id == 0:
+#         for key, value in curr_state.player1_pawns.items():
+#             if not np.array_equal(value[0], not_on_board) and not is_hidden(curr_state, agent_id, key):
+#                 myOldPawnLocationList.append((value[0][0], value[0][1],value[1]))
+#         for key, value in curr_state.player2_pawns.items():
+#             if not np.array_equal(value[0], not_on_board) and not is_hidden(curr_state, agent_id+1, key):
+#                 rivalOldPawnLocationList.append((value[0][0], value[0][1],value[1]))
+#     if agent_id == 1:
+#         for key, value in curr_state.player2_pawns.items():
+#             if not np.array_equal(value[0], not_on_board) and not is_hidden(curr_state, agent_id, key):
+#                 myOldPawnLocationList.append((value[0][0], value[0][1],value[1]))
+#         #print("rival old items:",curr_state.player1_pawns.items())
+#         for key, value in curr_state.player1_pawns.items():
+#             #print("bool: ",np.array_equal(value[0], not_on_board))
+#             #print("value[0]", value[0])
+#             #print("bool is hidden: ",is_hidden(curr_state, agent_id, key))
+#             #print("key: ",key)
+#             if (not np.array_equal(value[0], not_on_board)) and (not is_hidden(curr_state, agent_id-1, key)):
+#                 #print("hello")
+#                 rivalOldPawnLocationList.append((value[0][0], value[0][1],value[1]))
+#     if agent_id == 0:
+#         for key, value in next_state.player1_pawns.items():
+#             if not np.array_equal(value[0], not_on_board) and not is_hidden(next_state, agent_id, key):
+#                 myNewPawnLocationList.append((value[0][0], value[0][1],value[1]))
+#         for key, value in next_state.player2_pawns.items():
+#             if not np.array_equal(value[0], not_on_board) and not is_hidden(next_state, agent_id+1, key):
+#                 rivalNewPawnLocationList.append((value[0][0], value[0][1],value[1]))
+#     if agent_id == 1:
+#         for key, value in next_state.player2_pawns.items():
+#             if not np.array_equal(value[0], not_on_board) and not is_hidden(next_state, agent_id, key):
+#                 myNewPawnLocationList.append((value[0][0], value[0][1],value[1]))
+#         for key, value in next_state.player1_pawns.items():
+#             if not np.array_equal(value[0], not_on_board) and not is_hidden(next_state, agent_id-1, key):
+#                 rivalNewPawnLocationList.append((value[0][0], value[0][1],value[1]))
+
+
+#     #now we are going to check if the move included capturing an opponent's pawn
+#     captured = False
+#     #print("myOld", myOldPawnLocationList)
+#     #print("myNew", myNewPawnLocationList)
+#     #print("rivalOld",rivalOldPawnLocationList)
+#     #print("rivalNew", rivalNewPawnLocationList)
+#     for pawn in rivalOldPawnLocationList:
+#         if pawn not in rivalNewPawnLocationList: #meaning the pawn was there and now isn't, aka captured
+#             p *= 2
+#             captured = True
+#             #print("the new pawn:",pawn)
+#             break
+
+#     #now we are going to check if the move included the moving/placing of a SMALL pawn
+
+#     if not captured:
+#         # in order to check the case of a small pawn appearing on the board at a new location, there are two options:
+#         # either we moved it directly (made a move with S), or it was unravelled by moving a bigger encapsulating pawn
+#         # (in which case we did not make a move with S)
+#         small_changed = False
+#         for pawn in myNewPawnLocationList:
+#             if (pawn[2] != 'S'):
+#                 continue
+#             if pawn not in myOldPawnLocationList:
+#                 p *= 2
+#                 small_changed = True
+#                 break
+#         #here we are checking if the small pawn appeared at a new spot because we moved a pawn that was encapsulating it
+#         #we check that by checking if any other of our pawns were moved/placed on the board. If so, then we will divide
+#         #the probability by 2
+#         if small_changed:
+#             for pawn in myNewPawnLocationList:
+#                 if (pawn[2] == 'S'):
+#                     continue
+#                 if pawn not in myOldPawnLocationList:
+#                     p /= 2
+#                     break
+
+
+#     return p
+
+
+# #here we make the sum of all probabilities equal to 1
+# def p_normalization(probabilities,num_neighbors):
+#     total_prob = 0
+#     normal_p_value = 1/num_neighbors
+#     for prob in probabilities:
+#         total_prob += prob
+#     print("total prob: ",total_prob)
+#     factorization = 1/total_prob
+#     new_total_prob=0
+#     for prob in probabilities:
+#         prob = prob*factorization
+#         new_total_prob+=prob
+
+#     #print("new total prob: ", new_total_prob)
+
+
+
+# def expectimax(curr_state, agent_id, time_limit):
+#     start_time = time.time()
+#     agent_number = agent_id
+#     cushion = 2  # [s], stopping recursion 2 seconds before time limit to allow for exiting the nested recursion
+
+#     # time_for_recursion = 0
+#     # time_elapsed = 0
+
+#     def rb_expectimax_recursion(current_state, turn_id, current_depth):
+#         # print(f"time elapsed = {time_elapsed(start_time)}")
+#         if time_elapsed(start_time) > time_limit - cushion:
+#             #print("here")
+#             return False
+
+#         if current_depth == 0:
+#             return (current_state, smart_heuristic(current_state, agent_id))
+
+#         if gge.is_final_state(current_state):
+#             return (current_state, smart_heuristic(current_state, agent_id))
+
+#         neighbor_list = current_state.get_neighbors()
+
+#         if turn_id == agent_number:
+#             max_heuristic = -np.inf
+#             max_state = None
+
+#             for neighbor in neighbor_list:
+#                 v = rb_expectimax_recursion(neighbor[1], 1 - turn_id, current_depth - 1)
+#                 if v == False:
+#                     return False
+#                 current_heuristic = v[1]
+#                 if current_heuristic > max_heuristic:
+#                     max_heuristic = current_heuristic
+#                     max_state = neighbor[1]
+#             return (max_state, max_heuristic)
+
+#         else:
+#             expected_value = 0
+#             max_probability = 0
+#             chosen_state = None
+#             probabilities = []
+#             num_neighbors = len(neighbor_list)
+#             for neighbor in neighbor_list:
+#                 #gge.render_console(current_state)
+#                 #gge.render_console(neighbor[1])
+#                 p = probability_of_happening(current_state, neighbor[1], num_neighbors, turn_id)
+#                 probabilities.append(p)
+
+#             p_normalization(probabilities,num_neighbors)
+#             i = 0
+#             for neighbor in neighbor_list:
+#                 v = rb_expectimax_recursion(neighbor[1], 1 - turn_id, current_depth - 1)
+#                 if v == False:
+#                     return False
+#                 (a,expected_value) = v
+#                 expected_value += probabilities[i] * expected_value
+#                 if (probabilities[i]>max_probability):
+#                     max_probability = probabilities[i]
+#                     chosen_state = neighbor
+#                 i+=1
+#             return (chosen_state,expected_value)
+
+
+#     depth = 0
+#     deepest_fully_scanned_solution = None
+#     recursion_start_time = time.time()
+#     current_solution = rb_expectimax_recursion(curr_state, agent_id, depth)
+
+#     while (current_solution is not False):
+#         # while(depth < 2):
+#         deepest_fully_scanned_solution = current_solution[0]
+#         # print(f" deppest scan = {deepest_fully_scanned_solution}")
+#         depth += 1
+#         current_solution = rb_expectimax_recursion(curr_state, agent_id, depth)
+
+#     # print(f"time elapsed = {time.time()-start_time}")
+#     chosen_step = [neighbour for neighbour in curr_state.get_neighbors() if
+#                    states_equal(neighbour[1], deepest_fully_scanned_solution)][0][0]
+#     # print("minimax depth: ", depth)
+#     return chosen_step
+
+# # these is the BONUS - not mandatory
+# def super_agent(curr_state, agent_id, time_limit):
+#     raise NotImplementedError()
 
 
 def probability_of_happening(curr_state, next_state, num_neighbors, agent_id):
@@ -461,8 +805,21 @@ def probability_of_happening(curr_state, next_state, num_neighbors, agent_id):
         if pawn not in rivalNewPawnLocationList: #meaning the pawn was there and now isn't, aka captured
             p *= 2
             captured = True
-            #print("the new pawn:",pawn)
             break
+
+    if not captured:#checking if captures own pawn
+        for pawn in myOldPawnLocationList:#for every pawn in my old list
+            if pawn not in myNewPawnLocationList:#if it isn't in the new list
+                if pawn[2] == 'S': #if it's small
+                    if ((pawn[0],pawn[1],'B') in myNewPawnLocationList or (pawn[0],pawn[1],'M') in myNewPawnLocationList):#if the new pawn in this location is bigger
+                        captured = True
+                        p*=2
+                        break
+                if pawn[2] == 'M':#if it's medium
+                    if ((pawn[0],pawn[1],'B') in myNewPawnLocationList):#if the new pawn in this location is bigger
+                        captured = True
+                        p*=2
+                        break
 
     #now we are going to check if the move included the moving/placing of a SMALL pawn
 
@@ -499,7 +856,7 @@ def p_normalization(probabilities,num_neighbors):
     normal_p_value = 1/num_neighbors
     for prob in probabilities:
         total_prob += prob
-    print("total prob: ",total_prob)
+    # print("total prob: ",total_prob)
     factorization = 1/total_prob
     new_total_prob=0
     for prob in probabilities:
@@ -515,36 +872,39 @@ def expectimax(curr_state, agent_id, time_limit):
     agent_number = agent_id
     cushion = 2  # [s], stopping recursion 2 seconds before time limit to allow for exiting the nested recursion
 
-    # time_for_recursion = 0
-    # time_elapsed = 0
-
     def rb_expectimax_recursion(current_state, turn_id, current_depth):
-        # print(f"time elapsed = {time_elapsed(start_time)}")
         if time_elapsed(start_time) > time_limit - cushion:
-            #print("here")
-            return False
+            return -np.inf
 
         if current_depth == 0:
-            return (current_state, smart_heuristic(current_state, agent_id))
+            return smart_heuristic(current_state, agent_id)
 
         if gge.is_final_state(current_state):
-            return (current_state, smart_heuristic(current_state, agent_id))
+            return smart_heuristic(current_state, agent_id)
 
         neighbor_list = current_state.get_neighbors()
 
         if turn_id == agent_number:
-            max_heuristic = -np.inf
-            max_state = None
+
+            max_value = -np.inf
 
             for neighbor in neighbor_list:
-                v = rb_expectimax_recursion(neighbor[1], 1 - turn_id, current_depth - 1)
-                if v == False:
-                    return False
-                current_heuristic = v[1]
-                if current_heuristic > max_heuristic:
-                    max_heuristic = current_heuristic
-                    max_state = neighbor[1]
-            return (max_state, max_heuristic)
+                v = rb_expectimax_recursion(neighbor[1], 1 - turn_id, current_depth-1)
+                max_value = max(v, max_value)
+            return max_value
+
+            # max_heuristic = -np.inf
+            # max_state = None
+
+            # for neighbor in neighbor_list:
+            #     v = rb_expectimax_recursion(neighbor[1], 1 - turn_id, current_depth - 1)
+            #     if v == False:
+            #         return False
+            #     current_heuristic = v[1]
+            #     if current_heuristic > max_heuristic:
+            #         max_heuristic = current_heuristic
+            #         max_state = neighbor[1]
+            # return (max_state, max_heuristic)
 
         else:
             expected_value = 0
@@ -553,44 +913,51 @@ def expectimax(curr_state, agent_id, time_limit):
             probabilities = []
             num_neighbors = len(neighbor_list)
             for neighbor in neighbor_list:
-                #gge.render_console(current_state)
-                #gge.render_console(neighbor[1])
                 p = probability_of_happening(current_state, neighbor[1], num_neighbors, turn_id)
                 probabilities.append(p)
 
             p_normalization(probabilities,num_neighbors)
             i = 0
             for neighbor in neighbor_list:
-                v = rb_expectimax_recursion(neighbor[1], 1 - turn_id, current_depth - 1)
-                if v == False:
-                    return False
-                (a,expected_value) = v
+                v = rb_expectimax_recursion(neighbor[1], 1 - turn_id, current_depth-1)
+                expected_value = v
                 expected_value += probabilities[i] * expected_value
                 if (probabilities[i]>max_probability):
                     max_probability = probabilities[i]
-                    chosen_state = neighbor
                 i+=1
-            return (chosen_state,expected_value)
+            return expected_value
 
+
+    # depth = 0
+    # deepest_fully_scanned_solution = None
+    # recursion_start_time = time.time()
+    # current_solution = rb_expectimax_recursion(curr_state, agent_id, depth)
+
+    # while (current_solution is not False):
+    #     # while(depth < 2):
+    #     deepest_fully_scanned_solution = current_solution[0]
+    #     # print(f" deppest scan = {deepest_fully_scanned_solution}")
+    #     depth += 1
+    #     current_solution = rb_expectimax_recursion(curr_state, agent_id, depth)
+
+    # # print(f"time elapsed = {time.time()-start_time}")
+    # chosen_step = [neighbour for neighbour in curr_state.get_neighbors() if
+    #                states_equal(neighbour[1], deepest_fully_scanned_solution)][0][0]
+    # # print("minimax depth: ", depth)
+    # return chosen_step
 
     depth = 0
-    deepest_fully_scanned_solution = None
-    recursion_start_time = time.time()
-    current_solution = rb_expectimax_recursion(curr_state, agent_id, depth)
+    neighbour_list = curr_state.get_neighbors()
+    max_heuristic = -np.inf
+    max_neighbour = None
 
-    while (current_solution is not False):
-        # while(depth < 2):
-        deepest_fully_scanned_solution = current_solution[0]
-        # print(f" deppest scan = {deepest_fully_scanned_solution}")
-        depth += 1
-        current_solution = rb_expectimax_recursion(curr_state, agent_id, depth)
-
-    # print(f"time elapsed = {time.time()-start_time}")
-    chosen_step = [neighbour for neighbour in curr_state.get_neighbors() if
-                   states_equal(neighbour[1], deepest_fully_scanned_solution)][0][0]
-    # print("minimax depth: ", depth)
-    return chosen_step
-
-# these is the BONUS - not mandatory
-def super_agent(curr_state, agent_id, time_limit):
-    raise NotImplementedError()
+    while(time.time() < start_time + time_limit - 2):
+        for neighbour in neighbour_list:
+            current_heuristic = rb_expectimax_recursion(neighbour[1], agent_id, depth)
+            if current_heuristic > max_heuristic:
+                max_heuristic = current_heuristic
+                max_neighbour = neighbour
+        print(f"current best move = {max_neighbour[0]}")
+        print(f"current heuristic found = {max_heuristic}")
+        depth +=1
+    return max_neighbour[0]

@@ -4,7 +4,7 @@ import Gobblet_Gobblers_Env as gge
 import submission
 
 # TODO - elaborate
-time_limit = 20
+time_limit = 10
 steps_limit = 100
 
 agents = {
